@@ -6,6 +6,7 @@ on:
       - master
     tags:
       - 'v*'
+  workflow_dispatch:
   pull_request:
 
 env:
@@ -128,6 +129,7 @@ jobs:
           detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
+          
   build-linux:
     runs-on: arc-runner-set
     steps:
