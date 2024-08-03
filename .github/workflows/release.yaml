@@ -22,7 +22,7 @@ concurrency:
 jobs:
 
   build-linux-arm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Clone
         uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
           submodules: true
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.x'
+          go-version: '1.22.5'
           cache: false
       - name: Dependencies
         run: |
@@ -131,7 +131,7 @@ jobs:
           limit-access-to-actor: true
           
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Force Install GIT latest
         run: |
@@ -147,7 +147,7 @@ jobs:
           submodules: true
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.x'
+          go-version: '1.22.5'
           cache: false
       - name: Dependencies
         run: |
@@ -166,7 +166,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
         env:
-          CUDA_VERSION: 12-4
+          CUDA_VERSION: 12-5
       - name: "Install Hipblas"
         env:
           ROCM_VERSION: "6.1"
