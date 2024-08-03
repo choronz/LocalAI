@@ -183,7 +183,7 @@ sources/whisper.cpp:
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
-get-sources: sources/go-llama.cpp sources/gpt4all sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
+get-sources: sources/go-llama.cpp sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp backend/cpp/llama/llama.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(CURDIR)/sources/go-rwkv.cpp
@@ -197,7 +197,6 @@ dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-bert.cpp
-	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
 	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-llama.cpp
 
 prepare-sources: get-sources replace
@@ -267,7 +266,7 @@ else
 	# $(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
 	# $(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
 endif
-	GO_TAGS="tts p2p" $(MAKE) build
+	GO_TAGS="p2p" $(MAKE) build
 ifeq ($(DETECT_LIBS),true)
 	scripts/prepare-libs.sh backend-assets/grpc/piper
 endif
