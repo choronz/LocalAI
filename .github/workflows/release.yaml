@@ -2,11 +2,9 @@ name: Build and Release
 
 on:
   push:
-    branches:
     tags:
       - 'v*'
   workflow_dispatch:
-  pull_request:
 
 env:
   GRPC_VERSION: v1.65.0
@@ -212,3 +210,4 @@ jobs:
           detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
+  
