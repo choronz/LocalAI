@@ -2,7 +2,7 @@
 name: 'build container images (reusable)'
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       base-image:
         description: 'Base image'
