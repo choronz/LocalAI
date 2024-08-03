@@ -3,8 +3,6 @@ name: 'build container images'
 
 on:
   push:
-    branches:
-      - master
     tags:
       - '*'
   workflow_dispatch:
@@ -35,20 +33,11 @@ jobs:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
     strategy:
-      # Pushing with all jobs in parallel
-      # eats the bandwidth of all the nodes
-      max-parallel: ${{ github.event_name != 'pull_request' && 6 || 10 }}
+      # Pushing with all jobs in parallel eats the bandwidth of all the nodes
+      max-parallel: ${{ github.event_name != 'pull_request' && 3 || 6 }}
       matrix:
         include:
           # Extra images
-          - build-type: ''
-            platforms: 'linux/amd64'   # linux/arm64
-            tag-latest: 'auto'
-            tag-suffix: ''
-            image-type: 'extras'
-            runs-on: 'ubuntu-22.04'
-            base-image: "ubuntu:22.04"
-            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "4"
@@ -58,14 +47,6 @@ jobs:
             image-type: 'extras'
             runs-on: 'ubuntu-22.04'
             base-image: "ubuntu:22.04"
-            makeflags: "--jobs=3 --output-sync=target"
-          - build-type: ''
-            platforms: 'linux/amd64'   # linux/arm64
-            tag-latest: 'auto'
-            tag-suffix: ''
-            image-type: 'extras'
-            base-image: "ubuntu:22.04"
-            runs-on: 'ubuntu-22.04'
             makeflags: "--jobs=3 --output-sync=target"
             
   # Core images
