@@ -1,4 +1,4 @@
-ARG IMAGE_TYPE=extras
+ARG IMAGE_TYPE=
 ARG BASE_IMAGE=ubuntu:22.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
@@ -102,22 +102,6 @@ ARG CUDA_MINOR_VERSION=4
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 
-# Vulkan requirements
-RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "vulkan" ]; then
-        apt-get update && \
-        apt-get install -y  --no-install-recommends \
-            software-properties-common pciutils wget gpg-agent && \
-        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - && \
-        wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list && \
-        apt-get update && \
-        apt-get install -y \
-            vulkan-sdk && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/*
-    fi
-EOT
-
 # CuBLAS requirements
 RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "cublas" ]; then
@@ -152,18 +136,6 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
             libclblast-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* \
-    ; fi
-
-RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            hipblas-dev \
-            rocblas-dev && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* && \
-        # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
-        # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
-        ldconfig \
     ; fi
 
 ###################################
@@ -220,7 +192,7 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 # Adjustments to the build process should likely be made here.
 FROM requirements-drivers AS builder
 
-ARG GO_TAGS=""
+ARG GO_TAGS="p2p"
 # ARG GO_TAGS="stablediffusion tts p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
@@ -268,10 +240,10 @@ WORKDIR /build
 ## Build the binary
 RUN make build
 
-RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
-        mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
-        touch /build/sources/go-piper/piper-phonemize/pi/lib/keep \
-    ; fi
+# RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
+#         mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
+#         touch /build/sources/go-piper/piper-phonemize/pi/lib/keep \
+#     ; fi
 
 ###################################
 ###################################
@@ -280,7 +252,6 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
 # If you cannot find a more suitable place for an addition, this layer is a suitable place for it.
 FROM requirements-drivers
 
-ARG FFMPEG
 ARG BUILD_TYPE
 ARG TARGETARCH
 ARG IMAGE_TYPE=extras
@@ -297,14 +268,6 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
 
-# Add FFmpeg
-RUN if [ "${FFMPEG}" = "true" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            ffmpeg && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
 
 WORKDIR /build
 
@@ -323,7 +286,7 @@ RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
 
 # Copy shared libraries for piper
-COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
+# COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
 # do not let stablediffusion rebuild (requires an older version of absl)
 # COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
