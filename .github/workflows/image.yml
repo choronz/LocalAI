@@ -34,8 +34,6 @@ jobs:
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
-      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
-      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
       # Pushing with all jobs in parallel
       # eats the bandwidth of all the nodes
@@ -44,8 +42,7 @@ jobs:
         include:
           # Extra images
           - build-type: ''
-            #platforms: 'linux/amd64,linux/arm64'
-            platforms: 'linux/amd64'
+            platforms: 'linux/amd64'   # linux/arm64
             tag-latest: 'auto'
             tag-suffix: ''
             image-type: 'extras'
@@ -58,24 +55,20 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12'
-
             image-type: 'extras'
             runs-on: 'ubuntu-22.04'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: ''
-            #platforms: 'linux/amd64,linux/arm64'
-            platforms: 'linux/amd64'
+            platforms: 'linux/amd64'   # linux/arm64
             tag-latest: 'auto'
             tag-suffix: ''
             image-type: 'extras'
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-22.04'
             makeflags: "--jobs=3 --output-sync=target"
-
-          # Core images
-
-
+            
+  # Core images
   core-image-build:
     uses: ./.github/workflows/image_build.yml
     with:
@@ -96,8 +89,6 @@ jobs:
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
-      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
-      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
       max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
       matrix:
