@@ -1,4 +1,4 @@
-ARG IMAGE_TYPE=
+ARG IMAGE_TYPE=extras
 ARG BASE_IMAGE=ubuntu:22.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
@@ -77,7 +77,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        # espeak-ng \ espeak \
+        # espeak-ng espeak \
         python3-pip \
         python-is-python3 \
         python3-dev \
