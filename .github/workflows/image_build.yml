@@ -15,7 +15,7 @@ on:
         type: string
       build-type:
         description: 'Build type'
-        default: ''
+        default: 'cublas'
         type: string
       cuda-major-version:
         description: 'CUDA major version'
@@ -41,22 +41,14 @@ on:
           description: 'Tag latest'
           default: ''
           type: string
-      tag-suffix:
-        description: 'Tag suffix'
-        default: ''
-        type: string
-      ffmpeg:
-        description: 'FFMPEG'
-        default: ''
-        type: string
       image-type:
         description: 'Image type'
-        default: ''
+        default: 'amd64'
         type: string
       runs-on:
         description: 'Runs on'
         required: true
-        default: ''
+        default: 'ubuntu-22.04'
         type: string
       makeflags:
         description: 'Make Flags'
