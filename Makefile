@@ -10,10 +10,6 @@ GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
 CPPLLAMA_VERSION?=b7a08fd5e0e7c898c68d1743066ea495202d9608
 
-# gpt4all version
-GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
-GPT4ALL_VERSION?=27a8b020c36b0df8f8b82a252d261cda47cf44b8
-
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
@@ -25,18 +21,6 @@ WHISPER_CPP_VERSION?=6739eb83c3ca5cf40d24c6fe8442a761a1eb6248
 # bert.cpp version
 BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
 BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
-
-# go-piper version
-PIPER_REPO?=https://github.com/mudler/go-piper
-PIPER_VERSION?=9d0100873a7dbb0824dfea40e8cec70a1b110759
-
-# stablediffusion version
-STABLEDIFFUSION_REPO?=https://github.com/mudler/go-stable-diffusion
-STABLEDIFFUSION_VERSION?=4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f
-
-# tinydream version
-TINYDREAM_REPO?=https://github.com/M0Rf30/go-tiny-dream
-TINYDREAM_VERSION?=c04fa463ace9d9a6464313aa5f9cd0f953b6c057
 
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
@@ -87,30 +71,6 @@ ifndef UNAME_S
 UNAME_S := $(shell uname -s)
 endif
 
-ifeq ($(OS),Darwin)
-
-	ifeq ($(OSX_SIGNING_IDENTITY),)
-		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
-	endif
-
-	# on OSX, if BUILD_TYPE is blank, we should default to use Metal
-	ifeq ($(BUILD_TYPE),)
-		BUILD_TYPE=metal
-	# disable metal if on Darwin and any other value is explicitly passed.
-	else ifneq ($(BUILD_TYPE),metal)
-		CMAKE_ARGS+=-DGGML_METAL=OFF
-		export GGML_NO_ACCELERATE=1
-		export GGML_NO_METAL=1
-	endif
-
-	ifeq ($(BUILD_TYPE),metal)
-#			-lcblas 	removed: it seems to always be listed as a duplicate flag.
-		CGO_LDFLAGS += -framework Accelerate
-	endif
-else
-CGO_LDFLAGS_WHISPER+=-lgomp
-endif
-
 ifeq ($(BUILD_TYPE),openblas)
 	CGO_LDFLAGS+=-lopenblas
 	export GGML_OPENBLAS=1
@@ -122,36 +82,12 @@ ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda -lcufft
 endif
 
-ifeq ($(BUILD_TYPE),vulkan)
-	CMAKE_ARGS+=-DGGML_VULKAN=1
-endif
-
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	export GGML_SYCL=1
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
 	export GGML_SYCL_F16=1
-endif
-
-ifeq ($(BUILD_TYPE),hipblas)
-	ROCM_HOME ?= /opt/rocm
-	ROCM_PATH ?= /opt/rocm
-	LD_LIBRARY_PATH ?= /opt/rocm/lib:/opt/rocm/llvm/lib
-	export CXX=$(ROCM_HOME)/llvm/bin/clang++
-	export CC=$(ROCM_HOME)/llvm/bin/clang
-	# llama-ggml has no hipblas support, so override it here.
-	export STABLE_BUILD_TYPE=
-	export GGML_HIPBLAS=1
-	GPU_TARGETS ?= gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
-	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
-	CMAKE_ARGS+=-DGGML_HIPBLAS=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
-	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib
-endif
-
-ifeq ($(BUILD_TYPE),metal)
-	CGO_LDFLAGS+=-framework Foundation -framework Metal -framework MetalKit -framework MetalPerformanceShaders
-	export GGML_METAL=1
 endif
 
 ifeq ($(BUILD_TYPE),clblas)
@@ -164,35 +100,16 @@ ifeq ($(STATIC),true)
 	LD_FLAGS+=-linkmode external -extldflags -static
 endif
 
-ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
-#	OPTIONAL_TARGETS+=go-stable-diffusion/libstablediffusion.a
-	OPTIONAL_GRPC+=backend-assets/grpc/stablediffusion
-endif
-
-ifeq ($(findstring tinydream,$(GO_TAGS)),tinydream)
-#	OPTIONAL_TARGETS+=go-tiny-dream/libtinydream.a
-	OPTIONAL_GRPC+=backend-assets/grpc/tinydream
-endif
-
-ifeq ($(findstring tts,$(GO_TAGS)),tts)
-#	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
-#	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
-	PIPER_CGO_CXXFLAGS+=-I$(CURDIR)/sources/go-piper/piper/src/cpp -I$(CURDIR)/sources/go-piper/piper/build/fi/include -I$(CURDIR)/sources/go-piper/piper/build/pi/include -I$(CURDIR)/sources/go-piper/piper/build/si/include
-	PIPER_CGO_LDFLAGS+=-L$(CURDIR)/sources/go-piper/piper/build/fi/lib -L$(CURDIR)/sources/go-piper/piper/build/pi/lib -L$(CURDIR)/sources/go-piper/piper/build/si/lib -lfmt -lspdlog -lucd
-	OPTIONAL_GRPC+=backend-assets/grpc/piper
-endif
-
 ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
-ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
+# ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
+# ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
+# ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-grpc
 ALL_GRPC_BACKENDS+=backend-assets/util/llama-cpp-rpc-server
-ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
-ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
+# ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
 # Use filter-out to remove the specified backends
@@ -240,32 +157,6 @@ sources/go-llama.cpp:
 sources/go-llama.cpp/libbinding.a: sources/go-llama.cpp
 	$(MAKE) -C sources/go-llama.cpp BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
 
-## go-piper
-sources/go-piper:
-	mkdir -p sources/go-piper
-	cd sources/go-piper && \
-	git init && \
-	git remote add origin $(PIPER_REPO) && \
-	git fetch origin && \
-	git checkout $(PIPER_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/go-piper/libpiper_binding.a: sources/go-piper
-	$(MAKE) -C sources/go-piper libpiper_binding.a example/main piper.o
-
-## GPT4ALL
-sources/gpt4all:
-	mkdir -p sources/gpt4all
-	cd sources/gpt4all && \
-	git init && \
-	git remote add origin $(GPT4ALL_REPO) && \
-	git fetch origin && \
-	git checkout $(GPT4ALL_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
-	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ libgpt4all.a
-
 ## RWKV
 sources/go-rwkv.cpp:
 	mkdir -p sources/go-rwkv.cpp
@@ -278,32 +169,6 @@ sources/go-rwkv.cpp:
 
 sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
 	cd sources/go-rwkv.cpp && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
-
-## stable diffusion
-sources/go-stable-diffusion:
-	mkdir -p sources/go-stable-diffusion
-	cd sources/go-stable-diffusion && \
-	git init && \
-	git remote add origin $(STABLEDIFFUSION_REPO) && \
-	git fetch origin && \
-	git checkout $(STABLEDIFFUSION_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
-	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
-
-## tiny-dream
-sources/go-tiny-dream:
-	mkdir -p sources/go-tiny-dream
-	cd sources/go-tiny-dream && \
-	git init && \
-	git remote add origin $(TINYDREAM_REPO) && \
-	git fetch origin && \
-	git checkout $(TINYDREAM_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/go-tiny-dream/libtinydream.a: sources/go-tiny-dream
-	$(MAKE) -C sources/go-tiny-dream libtinydream.a
 
 ## whisper
 sources/whisper.cpp:
@@ -325,10 +190,6 @@ replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(CURDIR)/sources/go-bert.cpp
-	$(GOCMD) mod edit -replace github.com/M0Rf30/go-tiny-dream=$(CURDIR)/sources/go-tiny-dream
-	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(CURDIR)/sources/go-piper
-	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(CURDIR)/sources/go-stable-diffusion
-	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(CURDIR)/sources/go-llama.cpp
 
 dropreplace:
@@ -336,10 +197,7 @@ dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-bert.cpp
-	$(GOCMD) mod edit -dropreplace github.com/M0Rf30/go-tiny-dream
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
-	$(GOCMD) mod edit -dropreplace github.com/mudler/go-stable-diffusion
-	$(GOCMD) mod edit -dropreplace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang
 	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-llama.cpp
 
 prepare-sources: get-sources replace
@@ -349,13 +207,9 @@ prepare-sources: get-sources replace
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
 	$(MAKE) -C sources/go-llama.cpp clean
-	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ clean
 	$(MAKE) -C sources/go-rwkv.cpp clean
 	$(MAKE) -C sources/whisper.cpp clean
-	$(MAKE) -C sources/go-stable-diffusion clean
 	$(MAKE) -C sources/go-bert.cpp clean
-	$(MAKE) -C sources/go-piper clean
-	$(MAKE) -C sources/go-tiny-dream clean
 	$(MAKE) build
 
 prepare: prepare-sources $(OPTIONAL_TARGETS)
@@ -410,15 +264,14 @@ ifeq ($(OS),Darwin)
 	$(info ${GREEN}I Skip CUDA/hipblas build on MacOS${RESET})
 else
 	$(MAKE) backend-assets/grpc/llama-cpp-cuda
-	$(MAKE) backend-assets/grpc/llama-cpp-hipblas
-	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
-	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
+	# $(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
+	# $(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
 endif
 	GO_TAGS="tts p2p" $(MAKE) build
 ifeq ($(DETECT_LIBS),true)
 	scripts/prepare-libs.sh backend-assets/grpc/piper
 endif
-	GO_TAGS="tts p2p" STATIC=true $(MAKE) build
+	GO_TAGS="p2p" STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
@@ -466,15 +319,13 @@ prepare-test: grpcs
 
 test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
-	export GO_TAGS="tts stablediffusion debug"
+	export GO_TAGS="debug"
 	$(MAKE) prepare-test
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/sentencetransformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
-	$(MAKE) test-gpt4all
 	$(MAKE) test-llama
 	$(MAKE) test-llama-gguf
 	$(MAKE) test-tts
-	$(MAKE) test-stablediffusion
 
 prepare-e2e:
 	mkdir -p $(TEST_DIR)
@@ -500,10 +351,6 @@ teardown-e2e:
 	rm -rf $(TEST_DIR) || true
 	docker stop $$(docker ps -q --filter ancestor=localai-tests)
 
-test-gpt4all: prepare-test
-	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="gpt4all" --flake-attempts 5 -v -r $(TEST_PATHS)
-
 test-llama: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="llama" --flake-attempts 5 -v -r $(TEST_PATHS)
@@ -511,14 +358,6 @@ test-llama: prepare-test
 test-llama-gguf: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="llama-gguf" --flake-attempts 5 -v -r $(TEST_PATHS)
-
-test-tts: prepare-test
-	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="tts" --flake-attempts 1 -v -r $(TEST_PATHS)
-
-test-stablediffusion: prepare-test
-	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stablediffusion" --flake-attempts 1 -v -r $(TEST_PATHS)
 
 test-stores: backend-assets/grpc/local-store
 	mkdir -p tests/integration/backend-assets/grpc
@@ -559,50 +398,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama-protogen exllama2-protogen mamba-protogen petals-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen openvoice-protogen
+protogen-python: exllama2-protogen mamba-protogen petals-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean exllama-protogen-clean exllama2-protogen-clean mamba-protogen-clean petals-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean parler-tts-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean openvoice-protogen-clean
-
-.PHONY: autogptq-protogen
-autogptq-protogen:
-	$(MAKE) -C backend/python/autogptq protogen
-
-.PHONY: autogptq-protogen-clean
-autogptq-protogen-clean:
-	$(MAKE) -C backend/python/autogptq protogen-clean
-
-.PHONY: bark-protogen
-bark-protogen:
-	$(MAKE) -C backend/python/bark protogen
-
-.PHONY: bark-protogen-clean
-bark-protogen-clean:
-	$(MAKE) -C backend/python/bark protogen-clean
-
-.PHONY: coqui-protogen
-coqui-protogen:
-	$(MAKE) -C backend/python/coqui protogen
-
-.PHONY: coqui-protogen-clean
-coqui-protogen-clean:
-	$(MAKE) -C backend/python/coqui protogen-clean
-
-.PHONY: diffusers-protogen
-diffusers-protogen:
-	$(MAKE) -C backend/python/diffusers protogen
-
-.PHONY: diffusers-protogen-clean
-diffusers-protogen-clean:
-	$(MAKE) -C backend/python/diffusers protogen-clean
-
-.PHONY: exllama-protogen
-exllama-protogen:
-	$(MAKE) -C backend/python/exllama protogen
-
-.PHONY: exllama-protogen-clean
-exllama-protogen-clean:
-	$(MAKE) -C backend/python/exllama protogen-clean
+protogen-python-clean: exllama2-protogen-clean mamba-protogen-clean petals-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean
 
 .PHONY: exllama2-protogen
 exllama2-protogen:
@@ -652,22 +451,6 @@ transformers-protogen:
 transformers-protogen-clean:
 	$(MAKE) -C backend/python/transformers protogen-clean
 
-.PHONY: parler-tts-protogen
-parler-tts-protogen:
-	$(MAKE) -C backend/python/parler-tts protogen
-
-.PHONY: parler-tts-protogen-clean
-parler-tts-protogen-clean:
-	$(MAKE) -C backend/python/parler-tts protogen-clean
-
-.PHONY: transformers-musicgen-protogen
-transformers-musicgen-protogen:
-	$(MAKE) -C backend/python/transformers-musicgen protogen
-
-.PHONY: transformers-musicgen-protogen-clean
-transformers-musicgen-protogen-clean:
-	$(MAKE) -C backend/python/transformers-musicgen protogen-clean
-
 .PHONY: vall-e-x-protogen
 vall-e-x-protogen:
 	$(MAKE) -C backend/python/vall-e-x protogen
@@ -675,14 +458,6 @@ vall-e-x-protogen:
 .PHONY: vall-e-x-protogen-clean
 vall-e-x-protogen-clean:
 	$(MAKE) -C backend/python/vall-e-x protogen-clean
-
-.PHONY: openvoice-protogen
-openvoice-protogen:
-	$(MAKE) -C backend/python/openvoice protogen
-
-.PHONY: openvoice-protogen-clean
-openvoice-protogen-clean:
-	$(MAKE) -C backend/python/openvoice protogen-clean
 
 .PHONY: vllm-protogen
 vllm-protogen:
@@ -695,20 +470,12 @@ vllm-protogen-clean:
 ## GRPC
 # Note: it is duplicated in the Dockerfile
 prepare-extra-conda-environments: protogen-python
-	$(MAKE) -C backend/python/autogptq
-	$(MAKE) -C backend/python/bark
-	$(MAKE) -C backend/python/coqui
-	$(MAKE) -C backend/python/diffusers
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/mamba
 	$(MAKE) -C backend/python/sentencetransformers
 	$(MAKE) -C backend/python/rerankers
 	$(MAKE) -C backend/python/transformers
-	$(MAKE) -C backend/python/transformers-musicgen
-	$(MAKE) -C backend/python/parler-tts
 	$(MAKE) -C backend/python/vall-e-x
-	$(MAKE) -C backend/python/openvoice
-	$(MAKE) -C backend/python/exllama
 	$(MAKE) -C backend/python/petals
 	$(MAKE) -C backend/python/exllama2
 
@@ -718,23 +485,12 @@ prepare-test-extra: protogen-python
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
-	$(MAKE) -C backend/python/diffusers test
 
 backend-assets:
 	mkdir -p backend-assets
 ifeq ($(BUILD_API_ONLY),true)
 	touch backend-assets/keep
 endif
-
-backend-assets/espeak-ng-data: sources/go-piper sources/go-piper/libpiper_binding.a
-	mkdir -p backend-assets/espeak-ng-data
-	@cp -rf sources/go-piper/piper-phonemize/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
-
-backend-assets/gpt4all: sources/gpt4all sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a
-	mkdir -p backend-assets/gpt4all
-	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.so backend-assets/gpt4all/ || true
-	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.dylib backend-assets/gpt4all/ || true
-	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.dll backend-assets/gpt4all/ || true
 
 backend-assets/grpc: protogen-go replace
 	mkdir -p backend-assets/grpc
@@ -744,13 +500,6 @@ backend-assets/grpc/bert-embeddings: sources/go-bert.cpp sources/go-bert.cpp/lib
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bert-embeddings ./backend/go/llm/bert/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/bert-embeddings
-endif
-
-backend-assets/grpc/gpt4all: sources/gpt4all sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a backend-assets/gpt4all backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang/ LIBRARY_PATH=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang/ \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/gpt4all ./backend/go/llm/gpt4all/
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/gpt4all
 endif
 
 backend-assets/grpc/huggingface: backend-assets/grpc
@@ -831,20 +580,6 @@ backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc backend/cpp/llama/lla
 	BUILD_TYPE="hipblas" $(MAKE) VARIANT="llama-hipblas" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-hipblas/grpc-server backend-assets/grpc/llama-cpp-hipblas
 
-backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f16
-	$(MAKE) -C backend/cpp/llama-sycl_f16 purge
-	$(info ${GREEN}I llama-cpp build info:sycl_f16${RESET})
-	BUILD_TYPE="sycl_f16" $(MAKE) VARIANT="llama-sycl_f16" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-sycl_f16/grpc-server backend-assets/grpc/llama-cpp-sycl_f16
-
-backend-assets/grpc/llama-cpp-sycl_f32: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f32
-	$(MAKE) -C backend/cpp/llama-sycl_f32 purge
-	$(info ${GREEN}I llama-cpp build info:sycl_f32${RESET})
-	BUILD_TYPE="sycl_f32" $(MAKE) VARIANT="llama-sycl_f32" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-sycl_f32/grpc-server backend-assets/grpc/llama-cpp-sycl_f32
-
 backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-grpc
 	$(MAKE) -C backend/cpp/llama-grpc purge
@@ -863,32 +598,11 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/llama-ggml
 endif
 
-backend-assets/grpc/piper: sources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data
-	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/sources/go-piper \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/piper
-endif
-
 backend-assets/grpc/rwkv: sources/go-rwkv.cpp sources/go-rwkv.cpp/librwkv.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-rwkv.cpp LIBRARY_PATH=$(CURDIR)/sources/go-rwkv.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/rwkv ./backend/go/llm/rwkv
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/rwkv
-endif
-
-backend-assets/grpc/stablediffusion: sources/go-stable-diffusion sources/go-stable-diffusion/libstablediffusion.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/go-stable-diffusion/:/usr/include/opencv4" LIBRARY_PATH=$(CURDIR)/sources/go-stable-diffusion/ \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/stablediffusion
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/stablediffusion
-endif
-
-backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libtinydream.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/go-tiny-dream \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/tinydream
 endif
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
