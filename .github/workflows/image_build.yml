@@ -15,7 +15,7 @@ on:
         type: string
       build-type:
         description: 'Build type'
-        default: 'cublas'
+        default: ''
         type: string
       cuda-major-version:
         description: 'CUDA major version'
