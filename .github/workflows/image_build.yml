@@ -41,9 +41,13 @@ on:
           description: 'Tag latest'
           default: ''
           type: string
+      tag-suffix:
+        description: 'Tag suffix'
+        default: ''
+        type: string 
       image-type:
         description: 'Image type'
-        default: 'amd64'
+        default: 'linux/amd64'
         type: string
       runs-on:
         description: 'Runs on'
@@ -247,7 +251,7 @@ jobs:
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
-            FFMPEG=${{ inputs.ffmpeg }}
+
             IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
