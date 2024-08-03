@@ -77,8 +77,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        espeak-ng \
-        espeak \
+        # espeak-ng \ espeak \
         python3-pip \
         python-is-python3 \
         python3-dev \
@@ -99,7 +98,7 @@ FROM requirements-${IMAGE_TYPE} AS requirements-drivers
 
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
-ARG CUDA_MINOR_VERSION=0
+ARG CUDA_MINOR_VERSION=4
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 
@@ -221,7 +220,8 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 # Adjustments to the build process should likely be made here.
 FROM requirements-drivers AS builder
 
-ARG GO_TAGS="stablediffusion tts p2p"
+ARG GO_TAGS=""
+# ARG GO_TAGS="stablediffusion tts p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 
@@ -257,7 +257,7 @@ RUN <<EOT bash
 EOT
 
 # stablediffusion does not tolerate a newer version of abseil, build it first
-RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+# RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
 # Install the pre-built GRPC
 COPY --from=grpc /opt/grpc /usr/local
@@ -326,7 +326,7 @@ COPY --from=builder /build/local-ai ./
 COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
 # do not let stablediffusion rebuild (requires an older version of absl)
-COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
+# COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
 # Change the shell to bash so we can use [[ tests below
 SHELL ["/bin/bash", "-c"]
