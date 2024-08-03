@@ -46,26 +46,12 @@ RUN echo "Target Variant: $TARGETVARIANT"
 # Cuda
 ENV PATH /usr/local/cuda/bin:${PATH}
 
-# HipBLAS requirements
-ENV PATH /opt/rocm/bin:${PATH}
-
-# OpenBLAS requirements and stable diffusion
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libopenblas-dev \
-        libopencv-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Set up OpenCV
-RUN ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
-
 WORKDIR /build
 
 RUN test -n "$TARGETARCH" \
     || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
 
-###################################
+
 ###################################
 
 # The requirements-extras target is for any builds with IMAGE_TYPE=extras. It should not be placed in this target unless every IMAGE_TYPE=extras build will use it
@@ -89,7 +75,7 @@ RUN apt-get update && \
 # Install grpcio-tools (the version in 22.04 is too old)
 RUN pip install --user grpcio-tools
 
-###################################
+
 ###################################
 
 # The requirements-drivers target is for BUILD_TYPE specific items.  If you need to install something specific to CUDA, or specific to ROCM, it goes here.
@@ -139,7 +125,6 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
     ; fi
 
 ###################################
-###################################
 
 # Temporary workaround for Intel's repository to work correctly
 # https://community.intel.com/t5/Intel-oneAPI-Math-Kernel-Library/APT-Repository-not-working-signatures-invalid/m-p/1599436/highlight/true#M36143
@@ -149,7 +134,7 @@ RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
 gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
 
-###################################
+
 ###################################
 
 # The grpc target does one thing, it builds and installs GRPC.  This is in it's own layer so that it can be effectively cached by CI.
@@ -185,7 +170,6 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
     make install && \
     rm -rf /build
 
-###################################
 ###################################
 
 # The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
