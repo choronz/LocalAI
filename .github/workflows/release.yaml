@@ -131,7 +131,7 @@ jobs:
           limit-access-to-actor: true
           
   build-linux:
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     steps:
       - name: Force Install GIT latest
         run: |
@@ -166,7 +166,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
         env:
-          CUDA_VERSION: 12-5
+          CUDA_VERSION: 12-4
       - name: "Install Hipblas"
         env:
           ROCM_VERSION: "6.1"
@@ -239,37 +239,4 @@ jobs:
           detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
-  build-stablediffusion:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22.x'
-          cache: false
-      - name: Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler ccache upx-ucl
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
-      - name: Build stablediffusion
-        run: |
-          export PATH=$PATH:$GOPATH/bin
-          make backend-assets/grpc/stablediffusion
-          mkdir -p release && cp backend-assets/grpc/stablediffusion release
-        env:
-          GO_TAGS: stablediffusion
-      - uses: actions/upload-artifact@v4
-        with:
-          name: stablediffusion
-          path: release/
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            release/*
+  
