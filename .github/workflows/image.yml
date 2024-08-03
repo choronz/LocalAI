@@ -44,7 +44,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12'
-            image-type: ''
+            image-type: 'extras'
             runs-on: 'ubuntu-22.04'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=4 --output-sync=target"
