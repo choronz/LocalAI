@@ -75,6 +75,7 @@ on:
         required: true
 jobs:
   reusable_image-build:
+    environment: release
     runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Force Install GIT latest
