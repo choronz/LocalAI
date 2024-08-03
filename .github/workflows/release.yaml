@@ -3,7 +3,6 @@ name: Build and Release
 on:
   push:
     branches:
-      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -59,7 +58,7 @@ jobs:
           cd grpc && sed -i "216i\  TESTONLY" "third_party/abseil-cpp/absl/container/CMakeLists.txt" && mkdir -p cmake/build && \
           cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
-            ../.. && sudo make --jobs 5 --output-sync=target
+            ../.. && sudo make --jobs 4 --output-sync=target
       - name: Install gRPC
         run: |
           GNU_HOST=aarch64-linux-gnu
@@ -82,7 +81,7 @@ jobs:
             echo "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN && \
             echo "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN
           GRPC_DIR=$PWD/grpc
-          cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install && \
+          cd grpc && cd cmake/build && sudo make --jobs 4 --output-sync=target install && \
           GRPC_CROSS_BUILD_DIR=$GRPC_DIR/cmake/cross_build && \
           mkdir -p $GRPC_CROSS_BUILD_DIR && \
           cd $GRPC_CROSS_BUILD_DIR && \
@@ -167,31 +166,6 @@ jobs:
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
         env:
           CUDA_VERSION: 12-5
-      - name: "Install Hipblas"
-        env:
-          ROCM_VERSION: "6.1"
-          AMDGPU_VERSION: "6.1"
-        run: |
-            set -ex
-
-            sudo apt-get update
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl libnuma-dev gnupg
-
-            curl -sL https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
-
-            printf "deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION/ jammy main" | sudo tee /etc/apt/sources.list.d/rocm.list
-
-            printf "deb [arch=amd64] https://repo.radeon.com/amdgpu/$AMDGPU_VERSION/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/amdgpu.list
-            printf 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' | sudo tee /etc/apt/preferences.d/rocm-pin-600
-            sudo apt-get update
-
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-                hipblas-dev rocm-dev \
-                rocblas-dev
-
-            sudo apt-get clean
-            sudo rm -rf /var/lib/apt/lists/*
-            sudo ldconfig
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
@@ -205,10 +179,10 @@ jobs:
           cd grpc && sed -i "216i\  TESTONLY" "third_party/abseil-cpp/absl/container/CMakeLists.txt" && mkdir -p cmake/build && \
           cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
-            ../.. && sudo make --jobs 5 --output-sync=target
+            ../.. && sudo make --jobs 4 --output-sync=target
       - name: Install gRPC
         run: |
-          cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install
+          cd grpc && cd cmake/build && sudo make --jobs 4 --output-sync=target install
       # BACKEND_LIBS needed for gpu-workload: /opt/intel/oneapi/*/lib/libiomp5.so /opt/intel/oneapi/*/lib/libmkl_core.so /opt/intel/oneapi/*/lib/libmkl_core.so.2 /opt/intel/oneapi/*/lib/libmkl_intel_ilp64.so /opt/intel/oneapi/*/lib/libmkl_intel_ilp64.so.2 /opt/intel/oneapi/*/lib/libmkl_sycl_blas.so /opt/intel/oneapi/*/lib/libmkl_sycl_blas.so.4 /opt/intel/oneapi/*/lib/libmkl_tbb_thread.so /opt/intel/oneapi/*/lib/libmkl_tbb_thread.so.2 /opt/intel/oneapi/*/lib/libsycl.so /opt/intel/oneapi/*/lib/libsycl.so.7 /opt/intel/oneapi/*/lib/libsycl.so.7.1.0 /opt/rocm-*/lib/libamdhip64.so /opt/rocm-*/lib/libamdhip64.so.5 /opt/rocm-*/lib/libamdhip64.so.6 /opt/rocm-*/lib/libamdhip64.so.6.1.60100 /opt/rocm-*/lib/libhipblas.so /opt/rocm-*/lib/libhipblas.so.2 /opt/rocm-*/lib/libhipblas.so.2.1.60100 /opt/rocm-*/lib/librocblas.so /opt/rocm-*/lib/librocblas.so.4 /opt/rocm-*/lib/librocblas.so.4.1.60100 /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so.1.0.0 /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/librt.so.1 /usr/local/cuda-*/targets/x86_64-linux/lib/libcublas.so /usr/local/cuda-*/targets/x86_64-linux/lib/libcublasLt.so /usr/local/cuda-*/targets/x86_64-linux/lib/libcudart.so /usr/local/cuda-*/targets/x86_64-linux/lib/stubs/libcuda.so
       - name: Build
         id: build
@@ -217,7 +191,6 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
-          export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
           sudo cp /lib64/ld-linux-x86-64.so.2 ld.so
           BACKEND_LIBS="./ld.so ./sources/go-piper/piper/build/fi/lib/libfmt.a ./sources/go-piper/piper-phonemize/pi/lib/libonnxruntime.so.1.14.1 ./sources/go-piper/piper-phonemize/pi/src/libespeak-ng/libespeak-ng.so /usr/lib/x86_64-linux-gnu/libdl.so.2 /usr/lib/x86_64-linux-gnu/librt.so.1 /usr/lib/x86_64-linux-gnu/libpthread.so.0 ./sources/go-piper/piper-phonemize/pi/lib/libpiper_phonemize.so.1 ./sources/go-piper/piper/build/si/lib/libspdlog.a ./sources/go-piper/espeak/ei/lib/libucd.so" \
@@ -239,4 +212,3 @@ jobs:
           detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
-  
